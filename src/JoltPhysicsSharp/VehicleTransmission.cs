@@ -30,6 +30,20 @@ public sealed class VehicleTransmission : NativeObject
         JPH_VehicleTransmission_Update(Handle, deltaTime, currentRPM, forwardInput, canShiftUp);
     }
 
+    /// <summary>
+    /// Changes a forward gear's ratio while the vehicle drives, as a continuously variable transmission does; Jolt reads it each step.
+    /// </summary>
+    /// <remarks>
+    /// Jolt's VehicleTransmission derives from VehicleTransmissionSettings, whose ratios it drives with, and joltc's handles are
+    /// pointer casts, so the settings' setter writes the live ratio.
+    /// </remarks>
+    public void SetGearRatio(int index, float ratio)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(index);
+        ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(index, JPH_VehicleTransmissionSettings_GetGearRatioCount(Handle));
+        JPH_VehicleTransmissionSettings_SetGearRatio(Handle, index, ratio);
+    }
+
     public int CurrentGear => JPH_VehicleTransmission_GetCurrentGear(Handle);
     public float ClutchFriction => JPH_VehicleTransmission_GetClutchFriction(Handle);
     public bool IsSwitchingGear => JPH_VehicleTransmission_IsSwitchingGear(Handle);

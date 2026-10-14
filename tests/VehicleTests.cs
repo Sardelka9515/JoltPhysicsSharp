@@ -1,6 +1,7 @@
 // Copyright (c) Amer Koleci and Contributors.
 // Licensed under the MIT License (MIT). See LICENSE in the repository root for more information.
 
+using System.Numerics;
 using NUnit.Framework;
 
 namespace JoltPhysicsSharp.Tests;
@@ -75,6 +76,41 @@ public class VehicleTests : BaseTest
 
         Assert.That(settings.LongitudinalFriction, Is.EqualTo(2.0f));
         Assert.That(settings.LateralFriction, Is.EqualTo(1.5f));
+    }
+
+    [Test]
+    public void SetGearRatioChangesTheLiveTransmission()
+    {
+        ObjectLayerPairFilterTable objectLayerPairFilter = new(1);
+        objectLayerPairFilter.EnableCollision(0, 0);
+        BroadPhaseLayerInterfaceTable broadPhaseLayerInterface = new(1, 1);
+        broadPhaseLayerInterface.MapObjectToBroadPhaseLayer(0, new BroadPhaseLayer(0));
+        using PhysicsSystem system = new(new PhysicsSystemSettings
+        {
+            ObjectLayerPairFilter = objectLayerPairFilter,
+            BroadPhaseLayerInterface = broadPhaseLayerInterface,
+            ObjectVsBroadPhaseLayerFilter = new ObjectVsBroadPhaseLayerFilterTable(broadPhaseLayerInterface, 1, objectLayerPairFilter, 1),
+        });
+        using BodyCreationSettings bodySettings = new(new BoxShape(new Vector3(1.0f, 0.5f, 2.0f)), new Vector3(0.0f, 1.0f, 0.0f), Quaternion.Identity, MotionType.Dynamic, 0);
+        Body body = system.BodyInterface.CreateBody(bodySettings);
+        system.BodyInterface.AddBody(body.ID, Activation.Activate);
+
+        WheelSettings[] wheels = new WheelSettings[4];
+        for (int i = 0; i < wheels.Length; i++)
+            wheels[i] = new WheelSettingsWV { Position = new Vector3(i % 2 == 0 ? -0.9f : 0.9f, -0.5f, i < 2 ? 1.5f : -1.5f) };
+        WheeledVehicleControllerSettings controllerSettings = new();
+        VehicleConstraintSettings settings = new() { Wheels = wheels, Controller = controllerSettings };
+        VehicleConstraint constraint = new(body, settings);
+        system.AddConstraint(constraint);
+        WheeledVehicleController controller = constraint.GetController<WheeledVehicleController>();
+        VehicleTransmission transmission = controller.Transmission;
+
+        transmission.Set(2, 1.0f);
+        transmission.SetGearRatio(1, 0.9f);
+        Assert.That(transmission.CurrentRatio, Is.EqualTo(0.9f));
+        Assert.That(controllerSettings.Transmission.GearRatios[1], Is.Not.EqualTo(0.9f), "the settings the vehicle was made from stay as they were");
+        Assert.Throws<ArgumentOutOfRangeException>(() => transmission.SetGearRatio(controllerSettings.Transmission.GearRatios.Length, 1.0f));
+        Assert.Throws<ArgumentOutOfRangeException>(() => transmission.SetGearRatio(-1, 1.0f));
     }
 
     [Test]
